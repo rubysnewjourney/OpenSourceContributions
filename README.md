@@ -10,7 +10,7 @@ Contribution Number: 1
  
  Issue: https://github.com/saleor/saleor/issues/12520
  
- Status: Phase III — Complete | PR Submitted | Tests Written | Ready for Review
+ Status: Phase III — Complete | PR Submitted | Tests Written | Ready for Review | Phase IV - In progress
 
 **Why I Chose This Issue**
 I chose this issue because I immediately understood the confusion it creates for developers: the global checkouts query supports filtering and sorting, but the User.checkouts field does not. This inconsistency makes the API harder to use and breaks the expectation that similar fields behave similarly. Since I've been learning how GraphQL schemas are structured and how resolvers work, this felt like a great opportunity to apply that knowledge in a real project.
