@@ -109,11 +109,17 @@ By adding sortBy and filter to User.checkouts, you improved API consistency acro
 
 **Community & Scale**
 22,900+ GitHub stars — one of the most popular open source e-commerce projects
+
 6,000+ forks — widely adopted and extended
+
 22,464 commits — actively maintained since 2013
+
 186 open issues — healthy backlog of improvements
+
 Active Discord community at saleor.io/discord
+
 Saleor Cloud — hosted version for teams that don't want to self-host
+
 
 ## Why I Chose This Issue
 
