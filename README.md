@@ -314,21 +314,36 @@ Reproduced the bug in the GraphQL playground — confirmed User.checkouts reject
 **Week 3 Progress (Phase III — Complete)**
 
 Implemented the fix in saleor/graphql/account/types.py:
+
 Added imports for CheckoutFilterInput, CheckoutSortingInput, and ADDED_IN_324
+
 Changed User.checkouts from ConnectionField to FilterConnectionField
+
 Added sort_by and filter arguments with ADDED_IN_324 version labels
+
 Updated resolve_checkouts resolver to convert dataloader list result to a Django queryset using get_database_connection_name for replica DB access, then applied filter_connection_queryset so filter and sort arguments are actually executed against the database
+
 Wrote 4 new tests in saleor/graphql/account/tests/queries/test_me.py:
+
 test_me_checkouts_sort_by_creation_date_asc — verifies ASC sort order
+
 test_me_checkouts_sort_by_creation_date_desc — verifies DESC sort order
+
 test_me_checkouts_filter_by_channel — verifies channel filter returns correct subset
+
 test_me_checkouts_sort_and_filter_combined — verifies both arguments work together
+
 All 32 tests in test_me.py pass including the 4 new ones. No regressions.
+
 Synced branch with latest upstream before each push via git fetch + git rebase. Submitted PR #19363 and marked ready for review.
-Code Changes
-Files modified: saleor/graphql/account/types.py, saleor/graphql/account/tests/queries/test_me.py
-Key commits: https://github.com/rubysnewjourney/saleor/commit/0aacdcb8faa0cc20272de908ba0a0acc47eb4d93
-Approach decisions: Reused existing CheckoutFilterInput, CheckoutSortingInput, and FilterConnectionField — no new classes created. Added ADDED_IN_324 labels to both new arguments following Saleor's versioning convention. Updated resolver to convert dataloader list to queryset with get_database_connection_name for correct replica DB access. Windows-specific workarounds (rlimit.py, pyproject.toml) kept off the PR branch and saved on windows-dev-setup branch instead.
+
+**Code Changes**
+
+**Files modified**: saleor/graphql/account/types.py, saleor/graphql/account/tests/queries/test_me.py
+
+**Key commits:** https://github.com/rubysnewjourney/saleor/commit/0aacdcb8faa0cc20272de908ba0a0acc47eb4d93
+
+**Approach decisions**: Reused existing CheckoutFilterInput, CheckoutSortingInput, and FilterConnectionField — no new classes created. Added ADDED_IN_324 labels to both new arguments following Saleor's versioning convention. Updated resolver to convert dataloader list to queryset with get_database_connection_name for correct replica DB access. Windows-specific workarounds (rlimit.py, pyproject.toml) kept off the PR branch and saved on windows-dev-setup branch instead.
 
 ### Week 4 Progress (Maintainer Feedback — Complete)
 
