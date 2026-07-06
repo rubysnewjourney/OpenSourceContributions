@@ -1,6 +1,59 @@
 # CodeAI301FirstProject
 
-My First open source project for CodePath AI 301
+Open source project for CodePath AI 301:
+
+------------------------------------------------------------------------------------------
+Previous Contribution #2
+------------------------------------------------------------------------------------------
+
+Contribution [2]: [fix: test_json.py is not being run]
+
+**Contribution Number:** 2  
+**Student:** Ruby Khatoon  
+**Issue:** (https://github.com/ossf/cve-bin-tool/issues/5689) 
+**Status:** Phase I | Sent a message to claim the issue if not being worked in a polite way as shown below
+
+Message for the open Issue: @alex-ter -Hello there, I noticed you've been assigned this for a couple of weeks — are you still actively working on it? No pressure at all, just wanted to check before doing any investigation myself. Happy to collaborate or wait if you're close to a PR. Thanks for your time.
+
+**Background about my open source issue:**
+## CVE Binary Tool — High Level
+
+**What it is:**
+A free, open source security tool that scans software to find known vulnerabilities. You point it at a binary, a folder, or a software bill of materials (SBOM), and it tells you which components have known CVEs (Common Vulnerabilities and Exposures) — essentially a security audit tool for your software supply chain.
+
+**Who uses it:**
+Developers and security teams who want to catch vulnerable dependencies before they ship, typically as part of a CI/CD pipeline. It's backed by the Open Source Security Foundation (OpenSSF) and used by enterprise Linux environments.
+
+**How it works at a glance:**
+It downloads vulnerability data daily from sources like NVD (National Vulnerability Database), RedHat, OSV, and GitLab Advisory Database, then cross-references that data against whatever you're scanning.
+
+---
+
+## Issue #5689 — What We're Trying to Fix
+
+**The short version:**
+There's a test file called `test_json.py` that is supposed to run as part of the project's automated test suite, but it never actually runs due to a misconfiguration — and even if it did run, it would fail for reasons unrelated to the tool itself.
+
+**How it got broken:**
+Two separate, unrelated code changes at different points in time each added a condition that must be true for the tests to execute — one requiring `LONG_TESTS=1` and another requiring `EXTERNAL_SYSTEM=1`. Neither change was wrong on its own, but together they created a combination that no CI workflow actually sets simultaneously, so the tests silently get skipped every single run without anyone noticing.
+
+**Why it matters:**
+A test that never runs gives a false sense of security — you think you have coverage but you don't. It's also confusing for contributors who see the file and assume it's part of the active test suite when it effectively isn't.
+
+**What the test actually does:**
+It validates cached NVD tar.gz data files against their schema and metadata — essentially checking that the downloaded vulnerability data is well-formed. However, NVD has had widespread data corruption issues for a while, meaning even if the test ran, it would produce failures caused by NVD's own bad data rather than any actual bug in the tool.
+
+**The two possible fixes being discussed:**
+- Fix the guard conditions so the test actually runs in the `linux-mayfail` CI job that was specifically designed for flaky, network-dependent tests
+- Remove `test_json.py` entirely since the underlying NVD data it validates is too unreliable to test against meaningfully
+
+The maintainer and a core contributor have both leaned toward removal, but the primary maintainer (`terriko`) hasn't formally signed off yet — which is why confirming direction before writing any code is the right first step.
+
+
+
+------------------------------------------------------------------------------------------
+Previous Contribution #1
+------------------------------------------------------------------------------------------
 
 # Contribution [1]: [Add sortBy and filter to User.checkouts]
 
