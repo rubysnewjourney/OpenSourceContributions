@@ -3,6 +3,20 @@
 Open source project for CodePath AI 301:
 
 ------------------------------------------------------------------------------------------
+Current Contribution #3
+------------------------------------------------------------------------------------------
+
+Contribution [3]: [fix: test_json.py is not being run]
+
+**Contribution Number:** 3 
+**Student:** Ruby Khatoon  
+**Issue:** (https://github.com/HoussemEddineChaouch/mini-agent-cli/issues/14)
+**Status:** Phase I | Sent a message to claim the issue on 07/12/2026| 
+
+**Message to the maintainer:**
+@HoussemEddineChaouch - I would be interested to work on this issue if this is still available. Please let me know. I'm looking forward to hearing back from you. Thanks!
+
+------------------------------------------------------------------------------------------
 Current Contribution #2
 ------------------------------------------------------------------------------------------
 
