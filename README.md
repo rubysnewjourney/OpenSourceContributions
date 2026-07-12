@@ -14,6 +14,10 @@ Contribution [2]: [fix: test_json.py is not being run]
 **Status:** Phase I | Sent a message to claim the issue if not being worked in a polite way as shown below| still waiting for update as of 07/11/2026| Planning to proceed with fix and share the PR soon and see if there will be any update from the maintainer.
 **Status:** - I had an update on my contribution 1. I had hear back on a conflict with merging and I resolved this week. The details are avialable bottom section of the Phase4 of the contribution 1.
 
+**Lighting Talk presentation to the Class AI301 on 07/08/2026:**
+I also got a chance to do the lighting talk presentation to the class 07/08/2026. 
+I reviewed my presenttion deck with teh faculty member and also sent her the practice audio for the feedback. 
+
 Message for the open Issue: @alex-ter -Hello there, I noticed you've been assigned this for a couple of weeks — are you still actively working on it? No pressure at all, just wanted to check before doing any investigation myself. Happy to collaborate or wait if you're close to a PR. Thanks for your time.
 
 **Background about my open source issue:**
