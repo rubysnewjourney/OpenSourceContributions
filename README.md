@@ -3,6 +3,238 @@
 Open source project for CodePath AI 301:
 
 ------------------------------------------------------------------------------------------
+Current Contribution #3
+------------------------------------------------------------------------------------------
+
+**Contribution Number:** *3*
+
+**Student:** Ruby Khatoon
+
+**Issue:** [DataQualityPipeline.warnings leaks state between run() calls · Issue #1 · AshayK003/XadaptiveEDA](https://github.com/AshayK003/XadaptiveEDA/issues/1)
+
+**Status:** Phase1 completed | Phase2 completed | Phase3 completed | Phase 4 compeletd| PR #13 submitted — awaiting maintainer review *(update on merge)*
+
+---
+
+## High-Level Project Summary
+
+XadaptiveEDA is an adaptive exploratory data analysis tool built with Streamlit. It provides intelligent analysis recommendations that learn from user preferences, Plotly visualizations, LLM-powered insights, and natural language queries over uploaded datasets. The component I worked on, `DataQualityPipeline` (in `data_quality.py`), sits between data loading and profiling: it normalizes, validates, and reports on data quality — producing a `QualityReport` with warnings about issues like constant columns, sparse columns, mixed types, and duplicate rows.
+
+## Why I Chose This Issue
+
+- Labeled `bug` + `good first issue` and well specified: the maintainer pointed to the exact line (`data_quality.py`, `__init__`) and even suggested the fix.
+- It matched my process: small enough to reproduce and verify end-to-end, but real enough to matter — a user uploading a second dataset would see an incorrect quality report contaminated by the first dataset's warnings.
+- It turned out to be a stronger learning opportunity than it looked: my investigation revealed the suggested one-line fix was incomplete (see Solution Approach), which led to a scope discussion with the maintainer and an expanded, approved fix.
+
+---
+
+## Understanding the Issue
+
+### Problem Description
+
+`DataQualityPipeline.__init__` sets `self.warnings: list[str] = []` once, but `run()` never resets it. Calling `run()` multiple times on the same pipeline instance carries warnings from earlier datasets into later reports.
+
+During investigation I found a second, related defect the issue did not mention: at the end of `run()`, `report.warnings = self.warnings` assigns the **same list object** to the report rather than a copy. Every report returned by the same pipeline instance shares one list — so a report returned from an *earlier* `run()` call silently keeps mutating as later runs append warnings.
+
+### Expected Behavior
+
+- Each `run()` call starts with an empty warnings list.
+- Two consecutive runs on the same instance do not accumulate warnings.
+- A returned `QualityReport` is an independent snapshot — later runs must not retroactively change it.
+
+### Current Behavior (before fix)
+
+- Run 2's report contained run 1's warnings even when run 2's data was clean.
+- `report1.warnings is report2.warnings` evaluated to `True` — both reports pointed at the identical list object, so `report1` mutated after it had already been returned.
+
+### Affected Components
+
+- `data_quality.py` → `DataQualityPipeline.__init__` (line ~54) and `DataQualityPipeline.run()` (reset missing at top; aliasing at the `report.warnings` assignment near the end)
+- Consumers: `cleanse()` convenience function and `DataProcessor.cleanse` (wraps the pipeline); the Streamlit app's per-upload quality report display
+- `test_data_quality.py` (new Test 13 added)
+
+---
+
+## Reproduction Process
+
+### Environment Setup
+
+**Prerequisites installed:**
+- Python 3.14.4 (repo requires 3.10+)
+- Git for Windows, PowerShell
+
+**Services started via Docker:** N/A — the project has no Docker; it runs directly via Python/Streamlit.
+
+**Dependencies and hooks:**
+- Cloned **my fork** (not upstream, since I would be pushing branches): `git clone https://github.com/rubysnewjourney/XadaptiveEDA.git`
+- Added `upstream` remote pointing at `AshayK003/XadaptiveEDA` and verified with `git remote -v`
+- Created and activated a virtual environment (`python -m venv venv`); resolved a Windows PowerShell execution-policy block with `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass` (process-scoped only — resets when the terminal closes)
+- `pip install -r requirements.txt` — verified via exit code `0` and `python -c "import pandas, numpy; print('OK')"`
+- **Deliberately skipped:** `streamlit run app.py` (the fix is testable via the plain-script test suite; the UI is not involved) and the optional Ollama/LLM `.env` setup (unrelated to the data quality pipeline). Scoped the environment to exactly what the task required.
+- Synced with upstream before branching: `git fetch upstream` + `git rev-list --count main..upstream/main` → `0` (already current)
+
+### Steps to Reproduce
+
+1. Create a branch: `git checkout -b feature/fix-warnings-state-leak` (naming per the repo README's `feature/...` convention — this repo has no separate CONTRIBUTING.md; guidelines live in the README).
+2. Write `repro_issue_1.py` (kept untracked — evidence artifact, not part of the fix):
+   - Instantiate **one** `DataQualityPipeline`.
+   - Run 1: a DataFrame designed to trigger warnings (`{'a': [1, 1, 1]}` — constant column + duplicate rows). This matters: the issue's steps don't specify data, but the leak is only *visible* if run 1 actually produces warnings.
+   - Run 2: clean data (`{'b': [1, 2, 3]}`) that should produce zero warnings.
+   - Check 1: does run 2's report contain run 1's warnings?
+   - Check 2: `report1.warnings is report2.warnings` — do the reports share one list object?
+3. Run `python repro_issue_1.py`.
+
+### Reproduction Evidence
+
+**Before fix:**
+
+```
+Run 1 warnings: ['1 constant column(s): a', 'Found 2 duplicate row(s)']
+Run 2 warnings: ['1 constant column(s): a', 'Found 2 duplicate row(s)']
+BUG 1 (state leak):      REPRODUCED
+BUG 2 (report aliasing): REPRODUCED
+```
+
+Baseline test suite before any change: **12/12 passing** (`python test_data_quality.py`).
+
+---
+
+## Solution Approach
+
+### Analysis
+
+Reading `data_quality.py` in full confirmed `self.warnings` is the **only** instance attribute set in `__init__` — so no other state leaks. But the file also revealed why the bug is worse than reported: `report.warnings = self.warnings` aliases the shared list into every report. The recommended reset alone would stop accumulation going forward, but would not protect a caller holding a reference to an earlier report.
+
+Reading `test_data_quality.py` explained why the bug shipped unnoticed: every one of the 12 existing tests calls the `cleanse()` convenience function, which constructs a **fresh** `DataQualityPipeline` per call. The suite is structurally incapable of exercising instance reuse — the exact scenario that triggers the bug.
+
+### Proposed Solution
+
+Two changes, both discussed with and approved by the maintainer before implementation:
+
+1. `self.warnings = []` as the first statement of `run()` — placed **above** the `if df.empty:` early return, so even the empty-dataframe path starts clean.
+2. `report.warnings = list(self.warnings)` — a shallow copy is sufficient because the list contains immutable strings; each report becomes an independent snapshot.
+
+### Implementation Plan
+
+**Plan:**
+1. Sync fork with upstream; branch `feature/fix-warnings-state-leak`
+2. Reproduce both defects with a repeatable script; capture "before" evidence
+3. Apply both fixes; validate via `git diff` before retesting
+4. Re-run the identical repro script; capture "after" evidence
+5. Re-run full `test_data_quality.py`; add Test 13 matching existing conventions
+6. Grep all other test suites for `data_quality` imports; run any that depend on it
+7. Commit (imperative style per repo README), push to fork, open PR, tag maintainer
+
+**Implement:**
+- Branch: `feature/fix-warnings-state-leak`
+- Commit: `fab3e7d` — "Fix warnings state leak and report aliasing in DataQualityPipeline" (2 files changed, 16 insertions, 2 deletions)
+- PR: https://github.com/AshayK003/XadaptiveEDA/pull/13
+
+**Review:**
+- Awaiting maintainer review *(update with outcome)*
+
+**Evaluate:**
+- Same reproduction script, before vs. after — both defects gone, run 1 behavior unchanged
+- 13/13 tests passing; zero regressions in dependent suites
+
+### Testing Strategy
+
+**Unit Tests**
+- New **Test 13** in `test_data_quality.py`, matching the file's existing plain `print`/`assert` script style (no pytest — "follow existing code style" per README). Critically, it instantiates `DataQualityPipeline()` directly and reuses it across two `run()` calls — the only structure that can catch this bug. Asserts:
+  1. Run 1 produces warnings (guards against a silently useless test)
+  2. Run 2's report has zero warnings (reset works)
+  3. `report1.warnings is not report2.warnings` (aliasing fixed)
+  4. `report1.warnings` is unchanged after run 2 (earlier reports no longer retroactively mutated)
+- Full suite after fix: **13/13 passing**.
+
+**Integration Tests**
+- No CI in the repo. Verified downstream consumers via `Select-String` across all other test files for `data_quality|DataQualityPipeline|cleanse`: only `test_phase1.py` (imports `cleanse`, `QualityReport`; exercises `DataProcessor.cleanse` as a regression check) and `test_phase2.py` (imports `QualityReport`) touch the changed module. Ran both — **all passing**, including the `DataProcessor.cleanse: OK` regression check. Remaining suites confirmed not to import the module. (Manual UI check via Streamlit — uploading two datasets back-to-back — noted as an optional further integration step.)
+
+**After-fix reproduction evidence:**
+
+```
+Run 1 warnings: ['1 constant column(s): a', 'Found 2 duplicate row(s)']
+Run 2 warnings: []
+BUG 1 (state leak):      not present
+BUG 2 (report aliasing): not present
+```
+
+(Run 1 still producing its own warnings confirms the fix removed the leakage without breaking warning collection.)
+
+---
+
+## Implementation Notes
+
+- The diff was validated with `git diff` **before** retesting — exactly two hunks, both in `data_quality.py`, correct placement and indentation confirmed against a checklist.
+- Files were staged explicitly by name (`git add data_quality.py test_data_quality.py`) rather than `git add .`, keeping the untracked `repro_issue_1.py` evidence script out of the commit — per the repo's "keep PRs focused" guideline.
+- Commit message uses this repo's imperative, no-prefix style (README example: `Add amazing feature`) — deliberately different from the `feat:` conventional-commits style my previous project (mini-agent-cli) used. Convention is per-repo, not universal.
+- Verified no `PULL_REQUEST_TEMPLATE.md` exists (checked root, `docs/`, and hidden `.github/` — the three locations GitHub supports) before writing a freeform PR description. This is the first PR on the repository.
+
+## Maintainer Feedback
+
+**PR Link:** https://github.com/AshayK003/XadaptiveEDA/pull/13
+
+**PR Description:** Structured as Fixes #1 → What was happening → Changes → Testing → review tag. The `Fixes #1` linkage was confirmed in the PR sidebar (merging will auto-close the issue).
+
+**Copy of the maintainer feedback:**
+
+1. On my claim comment: *"Assigned! Go ahead — your plan looks solid. Let me know if you hit anything unexpected."*
+2. On my scope-check comment (raising the aliasing finding): *"Good catch — that's a real gap and closely related to the original issue. Since fixing `self.warnings = []` at the start of `run()` would make the aliasing less visible but wouldn't protect a caller holding onto a report reference, both fixes belong in the same PR. Go ahead and include both: 1. `self.warnings = []` at the start of `run()` 2. `report.warnings = list(self.warnings)` (copy, not alias). Makes the fix complete. Tag me when the PR is up and I'll review it."*
+3. *(PR review feedback — to be added when received)*
+
+## Code Changes
+
+```diff
+diff --git a/data_quality.py b/data_quality.py
+@@ -55,6 +55,7 @@ class DataQualityPipeline:
+     def run(self, df: pd.DataFrame, skip_name_normalization: bool = False) -> tuple[pd.DataFrame, QualityReport]:
+         """Run full pipeline. Returns (cleaned_df, QualityReport)."""
++        self.warnings = []
+         if df.empty:
+             report = QualityReport(warnings=["Empty dataset — no processing applied"])
+             return df, report
+@@ -104,7 +105,7 @@ class DataQualityPipeline:
+         self._compute_quality_metrics(df, report)
+         self._collect_warnings(report)
+-        report.warnings = self.warnings
++        report.warnings = list(self.warnings)
+         return df, report
+```
+
+Plus Test 13 in `test_data_quality.py` (reuses a single pipeline instance across two `run()` calls; four asserts covering the leak, the aliasing, and both guard conditions).
+
+---
+
+## Learnings & Reflections
+
+- **The issue description is a starting point, not the full spec.** The suggested one-line fix was correct but incomplete — reading the whole `run()` method surfaced the aliasing defect. Verifying against source code rather than trusting the write-up changed the scope of the fix.
+- **Test suites can have structural blind spots.** All 12 existing tests went through `cleanse()`, which creates a fresh pipeline per call — so the suite *couldn't* catch an instance-reuse bug no matter how many tests were added in that style. The new test had to deliberately break from the file's dominant pattern (while matching its style) to cover the gap.
+- **Ask before expanding scope — it pays off.** Instead of silently bundling the second fix or shipping it with an after-the-fact explanation, I raised it on the issue and asked whether it belonged in the same PR. The maintainer not only approved but supplied the strongest justification himself (a reset alone "wouldn't protect a caller holding onto a report reference").
+- **A repeatable reproduction script beats an interactive shell.** Running the identical script before and after the fix produced a clean, apples-to-apples evidence pair.
+- **Check downstream consumers, don't assume.** A quick `Select-String` across the other six test files found two suites importing from the changed module — both then run and confirmed green, including a dedicated `DataProcessor.cleanse` regression check I wouldn't have known existed otherwise.
+
+### Challenges Overcome
+
+- **Windows PowerShell execution policy** blocked venv activation; resolved with a process-scoped bypass (no system-wide security change).
+- **Reproduction design subtlety:** the issue's repro steps don't specify input data, but the leak is only observable if run 1 actually generates warnings — the repro had to construct warning-triggering data deliberately.
+- **Convention differences between repos:** branch naming (`feature/` vs `feat/`) and commit style differ from my previous contribution's repo; each was verified against *this* repo's README rather than assumed.
+
+### What I'd Do Differently Next Time
+
+- Check for sibling test suites that import the target module at the **start** of the investigation, not just before opening the PR — it would have informed the testing plan earlier.
+- Preview PR description Markdown before submitting: `__init__` rendered as bold "init" because unescaped double underscores are Markdown bold syntax (should have been backticked).
+
+## Resources Used
+
+- Issue #1 and its comment thread (maintainer's fix recommendation and scope-approval)
+- Repo README (Contributing section: fork/branch/PR workflow, `feature/...` naming, code style, "add tests" and "keep PRs focused" guidelines; Quick Start for environment setup)
+- Source files read in full before changing anything: `data_quality.py`, `test_data_quality.py`
+- `git` (remotes, fetch/rev-list upstream sync, diff validation, explicit staging), PowerShell (`Set-ExecutionPolicy -Scope Process`, `Select-String` for dependency grep, `Get-ChildItem -Force` for PR-template check)
+- GitHub docs (PR template locations: root, `docs/`, `.github/` — used to verify none exists in this repo)
+- Python interactive shell + `repro_issue_1.py` for reproduction and identity (`is`) verification
+
+
+------------------------------------------------------------------------------------------
 Current Contribution #2
 ------------------------------------------------------------------------------------------
 
