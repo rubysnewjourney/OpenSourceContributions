@@ -25,9 +25,9 @@ the config.
 ## Why I Chose This Issue
 
 Labeled `good first issue` + `documentation` — no code changes required, just
-a new markdown file (`docs/migrate-to-relay.md`). Good fit for building
+a new markdown file (`docs/migrate-to-relay.md`). Good fit for internalization the process and building 
 confidence with the contribution workflow (claiming an issue, working with a
-maintainer, opening a PR) without the added complexity of a code change.
+maintainer, opening a PR). This gives exposure working on various type of issues like bugs, features and documentation
 
 ## Understanding the Issue
 
