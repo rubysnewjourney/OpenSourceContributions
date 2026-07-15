@@ -243,7 +243,7 @@ Current Contribution #2 - New Feature
 
 **Issue**: [feat: add deleteFile tool #14](https://github.com/HoussemEddineChaouch/mini-agent-cli/issues/14)
 
-**Status**: Phase1 completed | Phase2 Completed | Phase 3 Completed | Phase 4 completed | PR submitted and maintainer requested Changes (in review)| Waiting for final Approval
+**Status**: Phase1 completed | Phase2 Completed | Phase 3 Completed | Phase 4 completed | PR submitted, maintainer feedback addressed | **Merged Completed**
 
 ## High-Level Project Summary
 
@@ -251,7 +251,7 @@ Current Contribution #2 - New Feature
 
 ## Why I Chose This Issue
 
-It was labeled `good first issue` and nobody had picked it up yet. I liked that it fit neatly into a pattern the codebase already had going — one function in `functions.js`, one entry in `tools.js` — so it felt like a manageable contribution to this repo, but still one where I'd actually have to understand how the pieces fit together (the tool registry, the agent loop, the error handling) instead of just tweaking a string somewhere.
+It was labeled `good first issue` and nobody had picked it up yet. I liked that it fit neatly into a pattern the codebase already had going — one function in `functions.js`, one entry in `tools.js` — so it felt like a first manageable contribution to this repo, but still one where I'd actually have to understand how the pieces fit together (the tool registry, the agent loop, the error handling) instead of just tweaking a string somewhere.
 
 ---
 
@@ -329,7 +329,7 @@ Add a `deleteFile(path)` function using `fs.unlinkSync`, built to match `writeFi
 * Round 2 — maintainer asked for two more things: a `deleteFile` example in `agent.js`, and a row in the README's tools table
 
 **Evaluate:**
-- Both rounds of feedback are addressed and pushed. Waiting on the maintainer to take another look.
+- Both rounds of feedback are addressed and pushed. Maintainer reviewed and merged the PR.
 
 ---
 
@@ -379,6 +379,7 @@ Didn't get to run the agent end-to-end with Gemini since I don't have a `GEMINI_
 > After I updated it, he came back with two more asks:
 >
 > *"Hey @rubysnewjourney, great work! One thing, agent.js has an examples list that teaches Gemini how to call each tool. deleteFile needs one too otherwise Gemini might not use it correctly. Also add deleteFile to the README tools table and fill in the PR description template. Fix those and this is ready to merge!"*
+> **Outcome**: PR #30 was merged by the maintainer, closing issue #14.
 
 ### Code Changes
 - `src/functions.js` — added `deleteFile(path)`
