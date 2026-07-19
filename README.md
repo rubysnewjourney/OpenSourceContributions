@@ -6,6 +6,7 @@ Current Contribution #4 - Documentation Only
 ------------------------------------------------------------------------------------------
 
 **Contribution Number**: 4
+
 **Student**: Ruby Khatoon
 
 **Issue**: Add migration guide from standalone MCP servers to relay (valtors/relay #30)
