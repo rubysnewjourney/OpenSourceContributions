@@ -228,13 +228,38 @@ N/A — documentation only.
 ## Learnings & Reflections
 
 ### Challenges Overcome
-(To be completed — e.g., resolving discrepancies across README vs. docs vs.
-help-text vs. actual source before finding the authoritative file; not
-having Go installed initially and using direct source reading as a
-workaround.)
+
+- **Conflicting sources of truth.** The original issue text, the README, and the
+  binary's own `--help` output all disagreed with each other on tool names and
+  counts. Rather than trust any single source, I worked through them in order of
+  reliability: issue text → source code (`tools/registrations.go`) → maintainer
+  confirmation → live binary output (`tools --json`) → runtime behavior
+  (`relay doctor`). Each layer either confirmed or corrected the one before it,
+  which is what caught that `--help`'s "Tool categories" listing was stale across
+  every category, not just the one screenshot reference flagged in the issue.
+  
+- **No local Go environment initially.** Rather than block on the install, I did
+  the first round of verification by reading `tools/registrations.go` directly,
+  which let me raise the three tool-name discrepancies to the maintainer before
+  I'd even built the binary. Once Go was installed, I repeated the verification
+  against the live binary to confirm the source-level findings held up in practice.
+  
+- **Validating a claim with no direct CLI path.** There was no `relay call <tool>`
+  command to directly test `run_workflow`'s `ANTHROPIC_API_KEY` gating. Instead of
+  hand-rolling an MCP JSON-RPC session, I traced the check in `doctor.go` and then
+  confirmed it live with `relay doctor`, which is a faster and more reliable path
+  to the same evidence.
 
 ### What I'd Do Differently Next Time
-(To be completed.)
+
+- Run `relay doctor` and `relay tools --json` as a first step in any Relay
+  contribution, before reading source or `--help` — it would have surfaced the
+  `--help` staleness and the API key gating immediately, instead of as something
+  found while chasing another question.
+  
+- Post the source-vs-issue discrepancies to the maintainer earlier in the process,
+  as soon as the first mismatch was found, rather than batching all three findings
+  into a single comment.
 
 ## Resources Used
 
