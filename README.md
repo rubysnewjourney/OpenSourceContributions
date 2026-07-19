@@ -10,7 +10,7 @@ Current Contribution #4 - Documentation Only
 
 **Issue**: Add migration guide from standalone MCP servers to relay (valtors/relay #30)
 
-**Status**: Phase 1 & 2 Completed | Ready for PR
+**Status**: Phase 1 & 2 Completed | Guide and evidence finalized | Ready to branch, commit, and open PR
 
 ## High-Level Project Summary
 
@@ -25,9 +25,10 @@ the config.
 ## Why I Chose This Issue
 
 Labeled `good first issue` + `documentation` — no code changes required, just
-a new markdown file (`docs/migrate-to-relay.md`). Good fit for internalization the process and building 
-confidence with the contribution workflow (claiming an issue, working with a
-maintainer, opening a PR). This gives exposure working on various type of issues like bugs, features and documentation
+a new markdown file (`docs/migrate-to-relay.md`). Good fit for internalizing
+the process and building confidence with the contribution workflow (claiming
+an issue, working with a maintainer, opening a PR). This gives exposure
+working on various types of issues like bugs, features, and documentation.
 
 ## Understanding the Issue
 
@@ -55,12 +56,13 @@ Documentation only (`docs/` directory). No source code changes.
 claims against the actual codebase before writing anything.)
 
 ### Environment Setup
-- **Prerequisites installed:** Git (already available). Go — not yet
-  installed at time of writing; install in progress.
+- **Prerequisites installed:** Git, Go (`go version` → `go1.26.5 windows/amd64`)
 - **Services started via Docker:** None — this repo does not use Docker for
   this contribution.
-- **Dependencies and hooks:** None yet exercised; pending Go install to run
-  `go run . tools --json` or `go build`.
+- **Dependencies and hooks:** Built the binary locally with
+  `go build -o relay.exe .` in `C:\Users\rubys\Projects\AI301\relay` to
+  validate tool names/behavior directly, rather than relying solely on
+  source-code review.
 
 ### Steps Taken
 1. Read the issue (#30) in full, noting three specific tool-name claims to
@@ -80,6 +82,24 @@ claims against the actual codebase before writing anything.)
    present.
 8. Read `tools/registrations.go` directly (the actual tool-registration
    source) to get the definitive, authoritative tool list.
+9. Posted findings as a clarifying comment on the issue, citing
+   `tools/registrations.go`; maintainer confirmed all three discrepancies
+   and provided the definitive 40-tool list, then assigned the issue.
+10. Drafted `docs/migrate-to-relay.md` using only maintainer-confirmed tool
+    names, organized into per-category tables with before/after config
+    examples.
+11. Installed Go locally and built the binary (`go build -o relay.exe .`).
+12. Ran `.\relay.exe tools --json` against the live binary and diffed all
+    40 entries against the guide's tables — full match on names, categories,
+    and per-category counts.
+13. Ran `.\relay.exe --help` and found its "Tool categories" listing stale
+    across every category (not just the known `web_screenshot` reference),
+    confirming `tools --json` / `registrations.go` as the only reliable
+    sources.
+14. Traced the `ANTHROPIC_API_KEY` gating claim to `doctor.go:327-330`, then
+    confirmed it live by running `.\relay.exe doctor` with the key unset.
+15. Corrected the `pdf_info` table row in the guide to include `creator` and
+    `page dimensions`, per the live tool output's fuller description.
 
 ### Reproduction Evidence
 
@@ -163,13 +183,14 @@ document.
 - Draft `docs/migrate-to-relay.md` covering: why-consolidate rationale,
   before/after config examples, and a full tool-mapping table per category
   (file, image, pdf, data, text, web, workflow), using only maintainer-
-  confirmed tool names.
+  confirmed tool names. — **Done.**
 - Validate the guide against a locally running instance of Relay before
-  opening a PR (Go install in progress).
-- Open PR referencing issue #30 once validated.
+  opening a PR. — **Done**, see Reproduction Evidence Phase 2.
+- Create a feature branch (`docs/migrate-to-relay`) on the fork, commit
+  `docs/migrate-to-relay.md`, and push. — **Not yet started.**
+- Open PR referencing issue #30 once pushed. — **Not yet started.**
 
-**Implement:** [Branch/commit links to be added as work progresses —
-not yet created; local draft only so far]
+**Implement:** [Branch not yet created — pending next step]
 
 **Review:**
 -
@@ -183,13 +204,30 @@ not yet created; local draft only so far]
 N/A — documentation-only contribution, no code changes.
 
 ### Integration Tests
-Planned: once Go is installed locally, run Relay directly (`go run . tools
---json` and/or `relay init`) to confirm every tool name and config example
-in the guide matches real, observed behavior — not just source code review.
+Ran the built binary directly rather than relying on source review alone:
+- `.\relay.exe tools --json` — confirmed all 40 tool names, categories, and
+  counts in the guide match live output exactly.
+- `.\relay.exe --help` — used to cross-check the maintainer's "stale help
+  text" comment; found the staleness extends to every category, not just
+  the `web_screenshot` reference originally flagged.
+- `.\relay.exe doctor` — confirmed the `ANTHROPIC_API_KEY` gating claim
+  live, matching the `doctor.go` source check.
 
 ## Implementation Notes
 
-(To be completed once the branch is created and guide content is finalized.)
+The guide is organized as one table per tool category (file, image, pdf,
+data, text, web, workflow), each listing tool name and a one-line
+description, so a reader can scan for their specific use case without
+reading the whole document. Before/after `claude_desktop_config.json`
+snippets are shown twice — once generically for "any standalone server,"
+and once specifically for the fetch-server case, since that's the most
+common single-purpose server in circulation. Workflow tools are called out
+separately at the end since they're not a like-for-like replacement for any
+standalone server, to avoid implying a false migration mapping there. A
+footnote clarifies that the tool list was verified against
+`tools/registrations.go` and confirmed with the maintainer, and that
+`relay --help`'s own category listing is not a reliable source, so future
+readers/contributors don't repeat the same mistake the issue text made.
 
 ## Maintainer Feedback
 
@@ -212,13 +250,14 @@ Full comment from `tamish560` (issue #30):
 
 (Note: his category counts for image/pdf have small typos — 6/5 listed but
 7/6 tools actually named — the tool names themselves match
-`registrations.go` exactly.)
+`registrations.go` exactly, and this was independently re-confirmed against
+the live binary in Phase 2.)
 
 ## Pull Request
 
 **PR Link:** Not yet opened.
 
-**PR Description:** To be drafted once guide is finalized.
+**PR Description:** To be drafted once the branch is pushed.
 
 **Copy of maintainer feedback:** See above.
 
@@ -237,13 +276,13 @@ N/A — documentation only.
   (`relay doctor`). Each layer either confirmed or corrected the one before it,
   which is what caught that `--help`'s "Tool categories" listing was stale across
   every category, not just the one screenshot reference flagged in the issue.
-  
+
 - **No local Go environment initially.** Rather than block on the install, I did
   the first round of verification by reading `tools/registrations.go` directly,
   which let me raise the three tool-name discrepancies to the maintainer before
   I'd even built the binary. Once Go was installed, I repeated the verification
   against the live binary to confirm the source-level findings held up in practice.
-  
+
 - **Validating a claim with no direct CLI path.** There was no `relay call <tool>`
   command to directly test `run_workflow`'s `ANTHROPIC_API_KEY` gating. Instead of
   hand-rolling an MCP JSON-RPC session, I traced the check in `doctor.go` and then
@@ -256,7 +295,7 @@ N/A — documentation only.
   contribution, before reading source or `--help` — it would have surfaced the
   `--help` staleness and the API key gating immediately, instead of as something
   found while chasing another question.
-  
+
 - Post the source-vs-issue discrepancies to the maintainer earlier in the process,
   as soon as the first mismatch was found, rather than batching all three findings
   into a single comment.
@@ -270,10 +309,10 @@ N/A — documentation only.
 - `docs/ADDING_A_TOOL.md` (tool categories and registration conventions)
 - `tools/registrations.go` (authoritative tool registry — source of truth)
 - `main.go` (printUsage help text — found to contain a stale tool reference)
+- `doctor.go` (source of the `ANTHROPIC_API_KEY` gating check)
 - Official reference servers: https://github.com/modelcontextprotocol/servers
   (used to verify real "before" config examples for `mcp-server-fetch` and
   `@modelcontextprotocol/server-memory`)
-
 
 ------------------------------------------------------------------------------------------
 Current Contribution #3 - Bug fix
