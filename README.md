@@ -454,7 +454,9 @@ N/A — documentation only. Single new file: `docs/migrate-to-relay.md`.
   align the guide's config snippets)
 - Official reference servers: https://github.com/modelcontextprotocol/servers
   (used to verify real "before" config examples for `mcp-server-fetch` and
-  `@modelcontextprotocol/server-memory`)------------------------------------------------------------------------------------------
+  `@modelcontextprotocol/server-memory`)
+
+------------------------------------------------------------------------------------------
 Current Contribution #3 - Bug fix
 ------------------------------------------------------------------------------------------
 
