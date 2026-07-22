@@ -3,6 +3,407 @@
 Open source project for CodePath AI 301:
 
 ------------------------------------------------------------------------------------------
+Current Contribution #5 - Feature
+------------------------------------------------------------------------------------------
+
+Contribution Number: 5
+Student: Ruby Khatoon
+Issue: [Add more framework detectors · Issue #3 · fadythebassist/agentcontextkit](https://github.com/fadythebassist/agentcontextkit/issues/3)
+Status:  Phase 1 completed | Phase 2 completed | Phase 3 completed | Phase 4 completed — PR #8 merged
+
+## High-Level Project Summary
+
+AgentContextKit (`ackit`) is a CLI tool that scans a repository and generates
+context files (`.agent-context/facts.json`, `AGENTS.md`, `CLAUDE.md`,
+`repo-map.md`, etc.) so AI coding agents understand a project's stack,
+commands, and structure without re-discovering it every session. It works
+by walking the repo's file tree and checking for known signals — dependency
+names in `package.json`/`pyproject.toml`, and telltale config filenames
+(`next.config.js`, `vite.config.ts`, etc.) — rather than by asking an LLM to
+guess.
+
+## Why I Chose This Issue
+
+I chose this issue for a few reasons. AgentContextKit is an AI-related
+project, which lines up directly with my own interests and the focus of
+the CodePath AI 301 capstone. The maintainer was clearly active and
+prompt — the project had just launched, and I could see they were
+responsive to contributors, which made it a good environment to work in.
+I also wanted this contribution to be a feature add rather than a docs or
+test-only change, to get practice with the full cycle of understanding,
+designing, and implementing new functionality, not just patching something
+existing. Beyond that, I genuinely liked the purpose of the tool
+itself — helping AI coding agents understand a repo's structure without
+re-discovering it every session is a problem I found interesting to think
+through. Taking this on early helped me build momentum and a working
+rhythm for tackling the rest of my open-source contributions.
+
+---
+
+## Understanding the Issue
+
+### Problem Description
+AgentContextKit already detects a baseline set of frameworks (Next.js,
+React, Vite, FastAPI, Django) via `detectFrameworks()` in `src/scanner.ts`.
+The issue asks for the detector list to be expanded so the generated
+context is more useful out of the box, with a candidate list including
+Next.js/Remix/Astro, Vite React/Vue/Svelte, Expo/React Native, Firebase,
+Python pytest projects, and Rust/Cargo projects.
+
+### Expected Behavior
+At least two new framework/tool detectors added, each with fixture tests,
+following the existing simple/offline detection heuristic (dependency name
+or config filename), with results flowing into `facts.json` and
+`repo-map.md`, and without false-positive framework claims on ambiguous
+signals.
+
+### Current Behavior
+Scanning a Rust project (containing only `Cargo.toml`) or an Astro project
+returned an empty `frameworks: []` (or `generic`) — neither was recognized,
+confirmed via direct local reproduction before any changes were made.
+
+### Affected Components
+- `src/scanner.ts` — `detectFrameworks()`
+- `src/util.ts` — `listFiles()` ignored-directory list
+- `tests/scanner.test.ts` — fixture tests
+- `src/renderer.ts` / `src/types.ts` — verified as needing no changes;
+  `frameworks: string[]` is a plain array with no allowlist, and the
+  renderer pulls it through generically
+
+---
+
+## Reproduction Process
+
+### Environment Setup
+- Node v24.15.0
+- npm 11.12.1
+- Forked to `rubysnewjourney/agentcontextkit`, cloned locally to
+  `C:\Users\rubys\Projects\AI301\agentcontextkit`
+
+**Prerequisites installed:** Node.js, npm (project dependencies installed
+via `npm install`; no other prerequisites required)
+
+**Services started via Docker:** N/A — this project has no Docker setup
+
+**Dependencies and hooks:** `npm install` (50 packages); no git hooks
+present in the repo
+
+### Steps to Reproduce
+1. `npm install`
+2. `npm test` / `npm run typecheck` / `npm run build` — confirm clean
+   baseline (5 test files, 9 tests passing)
+3. `npm audit --omit=dev` — confirm the actual CI-relevant audit gate
+   passes (0 vulnerabilities; the 5 flagged by plain `npm install` are
+   dev-only tooling)
+4. `npm run build`, then manually run the built CLI against a scratch
+   folder containing only an empty `Cargo.toml`:
+   `node dist/cli.js scan --root .`
+
+### Reproduction Evidence
+```json
+{
+  "commands": {},
+  "existingAgentDocs": [],
+  "frameworks": [],
+  "generatedAt": "2026-07-21T05:26:10.625Z",
+  "importantFolders": [],
+  "languages": [],
+  "packageManagers": [],
+  "rootName": "ackit-check",
+  "schemaVersion": 1
+}
+```
+Confirms the gap firsthand: a folder containing a real `Cargo.toml`
+produces an empty `frameworks` list, since no Rust detector exists yet.
+
+---
+
+## Solution Approach
+
+### Analysis
+Every existing detector in `detectFrameworks()` follows one shape:
+`deps.has('x') || files.some(config-file-regex)`. Traced this pattern
+through `types.ts` (confirmed `frameworks: string[]` has no enum/allowlist
+restricting values) and `renderer.ts` (confirmed both `AGENTS.md`/
+`CLAUDE.md` and `repo-map.md` render `facts.frameworks` generically, no
+hardcoded framework list) — so adding a new framework name requires no
+downstream plumbing changes.
+
+Initially considered Remix as a second candidate; direct research showed
+its config convention has moved into a Vite plugin call in modern versions,
+and the framework itself is being merged into React Router v7 — swapped to
+Astro instead, whose `astro.config.{js,mjs,cjs,ts}` convention verified as
+current and stable.
+
+Found, via direct code reading (not from the issue text), that the file
+scanner's ignored-directories list had no entry for Rust's `target/` build
+output. Proved this was a real risk, not theoretical, with a standalone
+reproduction script showing 17 of 20 available file-scan slots consumed by
+build noise under a constrained budget, which dropped a real project file
+from detection.
+
+Weighed root-only vs. any-depth detection for `Cargo.toml` (the codebase
+has both conventions already — config files are root-only, entry-point
+files like `main.py` are any-depth). Chose root-only as the more
+conservative option, consistent with the issue's "avoid false confidence"
+criterion — later confirmed as the maintainer's exact intended scope.
+
+### Proposed Solution
+Add two detectors to `detectFrameworks()`:
+- **Astro** — `deps.has('astro') || files.some(/^astro\.config\.[cm]?[jt]s$/)`
+- **Rust/Cargo** — `files.some(/^Cargo\.toml$/)` (root-only)
+
+Add `'target'` to the ignored-directories `Set` in `listFiles()` (`src/util.ts`).
+
+### Implementation Plan
+
+**Plan:**
+1. Post claim comment on Issue #3, describing understanding and planned
+   scope — before writing any code
+2. Reproduce locally (clean baseline, then confirm the gap firsthand)
+3. Implement both detectors + `target/` exclusion
+4. Write fixture tests covering both detectors, the `target/` exclusion,
+   and a false-confidence case
+5. Commit, sync with upstream, push, open PR
+
+**Implement:** [Branch/commit links]
+- Branch: `feat/rust-astro-detectors`
+- Commit: [`426dec4`](https://github.com/rubysnewjourney/agentcontextkit/commit/426dec4f7d665bfa7cac5aa172cd87df277a91bc) — "Add Rust/Cargo and Astro framework detectors"
+
+**Review:**
+- Self-reviewed full diff (`git diff`) before staging/committing — confirmed
+  only the three intended files were modified
+- Re-verified for upstream drift immediately before pushing (`git fetch` +
+  `git log origin/main`) — found upstream had moved 3 commits since the
+  initial check; investigated rather than assumed, confirmed branch was
+  already correctly based on current `main`
+
+**Evaluate:**
+- All local verification (typecheck/build/test/audit) passing before PR
+  opened
+- GitHub PR page independently confirmed correct base/compare direction and
+  correct diff scope after opening
+
+### Testing Strategy
+
+**Unit Tests**
+Five new fixture tests added to `tests/scanner.test.ts`, following the
+existing temp-directory pattern (`makeTempRepo()`/`writeText()`):
+1. Astro detected via config file alone (no dependency)
+2. Astro detected via dependency alone (no config file)
+3. Rust/Cargo detected via `Cargo.toml`
+4. An unrelated repo (just a README) does not falsely report either
+   framework
+5. A Rust project with 40 noise files under `target/` still correctly
+   detects `Rust/Cargo` and still finds `tests/` in `importantFolders` —
+   specifically designed to prove the `target/` exclusion prevents
+   crowding, not merely that Rust itself gets detected
+
+**Integration Tests**
+Manually built the CLI (`npm run build`) and ran the compiled binary
+end-to-end against real fixture folders and two real cloned repositories
+(`dtolnay/anyhow` for Rust, `withastro/astro.build` for Astro) to confirm
+behavior beyond unit-level assertions — both detected correctly with no
+false positives against existing detectors (e.g., no collision with the
+existing Vite check).
+
+---
+
+## Implementation Notes
+- Final local verification: `npm run typecheck` clean, `npm run build`
+  clean, `npm test` — 5/5 test files, 14/14 tests passing (up from a
+  9-test baseline)
+- `npm audit --omit=dev` — 0 vulnerabilities (the actual CI gate; separate
+  from the 5 dev-only vulnerabilities flagged by plain `npm install`)
+- No `CONTRIBUTING.md` exists in this repo (confirmed via direct search);
+  no lint step in CI
+- Merged as squash commit `76dc1a7` on upstream `main`. Post-merge, added an
+  `upstream` remote (fork's `origin` doesn't auto-sync on merge), fetched
+  and fast-forwarded local `main` to `76dc1a7`, then pushed to fork's
+  `origin/main` to keep it in sync. Feature branch `feat/rust-astro-detectors`
+  kept in place, deletion deferred until after grading.
+
+---
+
+## Maintainer Feedback
+
+### Pull Request
+**PR Link:** https://github.com/fadythebassist/agentcontextkit/pull/8
+
+### PR Description
+```
+Closes #3
+
+## What changed
+
+Adds two new framework detectors to `detectFrameworks()` in `src/scanner.ts`,
+following the existing dependency-or-config-file pattern already used for
+Next.js/Vite/FastAPI/Django:
+
+- **Rust/Cargo** — detected via a `Cargo.toml` file at the repo root
+- **Astro** — detected via the `astro` dependency, or an
+  `astro.config.{js,mjs,cjs,ts}` file
+
+Also excludes Rust's `target/` build output directory from the file scan
+(`src/util.ts`). On a built Rust project this directory can contain a large
+number of build artifacts, which could otherwise crowd out real project
+files under the scanner's existing `maxFiles` cap.
+
+## Why
+
+Per the issue, these are two of the candidate detectors, chosen because
+they map cleanly onto the existing single-signal detection pattern with no
+new heuristic style needed. Scope intentionally kept to these two per
+maintainer guidance in the issue thread, rather than covering every
+candidate in one PR.
+
+## How I tested this
+
+- All 9 existing tests still pass — no regressions.
+- Added 5 new fixture tests in `tests/scanner.test.ts` (see Testing
+  Strategy above)
+- `npm run typecheck` — clean
+- `npm run build` — clean
+- `npm audit --omit=dev` — 0 vulnerabilities (the same check CI runs)
+- Ran locally: 5 test files / 14 tests passing
+
+## Checklist
+- [x] At least 2 new framework/tool detectors added
+- [x] Fixture tests added
+- [x] Detected frameworks flow into `facts.json` / `repo-map.md`
+- [x] Detection stays simple, offline-only
+- [x] No false-confidence: unrelated repos covered by a dedicated test
+```
+
+### Here is the copy of the maintainer feedbacks:
+> Thanks @rubysnewjourney — yes, please take it.
+>
+> Rust/Cargo + Astro sounds like a great first slice. Please keep the PR
+> focused on:
+>
+> - detecting Rust/Cargo via root `Cargo.toml`
+> - detecting Astro via `astro` dependency and/or `astro.config.*`
+> - adding fixture tests
+> - making sure Rust `target/` output is ignored where relevant
+> - preserving existing detector behavior
+>
+> No need to cover every framework in this PR. A small, well-tested
+> addition is perfect.
+> I'll review once you open the PR.
+
+_(Given in response to the claim comment, confirming assignment and scope.)_
+
+On merge:
+> Merged — thank you @rubysnewjourney
+>
+> This is exactly the kind of focused detector PR I was hoping for: small
+> scope, tests included, and aligned with the existing scanner style.
+> Really appreciate the contribution.
+
+My closing reply:
+> Thank you @fadythebassist — really appreciate you taking the time to
+> review, and glad the scope landed the way you were hoping for! Enjoyed
+> working through this one, and looking forward to contributing again.
+
+### Code Changes
+```diff
+diff --git a/src/scanner.ts b/src/scanner.ts
+@@ -95,6 +95,8 @@ function detectFrameworks(files: string[], deps: Set<string>, languages: string[]
+   if (deps.has('fastapi') || files.some((f) => /(^|\/)main\.py$/.test(f))) frameworks.add('FastAPI');
+   if (deps.has('django') || files.some((f) => /(^|\/)manage\.py$/.test(f))) frameworks.add('Django');
++  if (deps.has('astro') || files.some((f) => /^astro\.config\.[cm]?[jt]s$/.test(f))) frameworks.add('Astro');
++  if (files.some((f) => /^Cargo\.toml$/.test(f))) frameworks.add('Rust/Cargo');
+   if (frameworks.size === 0 && languages.length > 0) frameworks.add('generic');
+
+diff --git a/src/util.ts b/src/util.ts
+@@ -53,7 +53,7 @@
+-  const ignored = new Set(['.git', 'node_modules', 'dist', 'build', '.next', 'coverage', '.venv', 'venv', '__pycache__', '.pytest_cache', '.mypy_cache']);
++  const ignored = new Set(['.git', 'node_modules', 'dist', 'build', '.next', 'coverage', '.venv', 'venv', '__pycache__', '.pytest_cache', '.mypy_cache', 'target']);
+
+diff --git a/tests/scanner.test.ts b/tests/scanner.test.ts
+@@ (5 new fixture tests appended — see Testing Strategy above)
+```
+3 files changed, 50 insertions(+), 1 deletion(-)
+
+---
+
+## Learnings & Reflections
+
+### Challenges Overcome
+- Initially assumed Remix's config convention (`remix.config.js`) without
+  verifying it — direct research showed modern Remix has moved config into
+  a Vite plugin call, and the framework itself is in maintenance mode in
+  favor of React Router v7. Caught this before committing to the wrong
+  detector, and swapped to Astro after independently verifying its config
+  convention was current and stable.
+- Traced a real, previously-unknown bug through direct code reading rather
+  than just following the issue text: the scanner's file-walk
+  ignored-directories list had no entry for Rust's `target/` build output.
+  Proved this wasn't theoretical by writing a standalone reproduction
+  script that showed 17 of 20 available file-scan slots getting consumed
+  by build noise, actually dropping a real project file (`tests/basic.rs`)
+  from detection — then fixed it and wrote a fixture test specifically
+  designed to prove the *exclusion* works, not just that Rust gets
+  detected.
+- Made an independent design call on whether `Cargo.toml` detection should
+  be root-only or recurse into subdirectories (mirroring the codebase's two
+  competing conventions) — went with root-only, later confirmed as the
+  maintainer's exact intended scope, without having asked directly first.
+- Caught a real timing issue mid-contribution: re-ran `git fetch` before
+  pushing, out of habit, and found upstream `main` had moved by three
+  commits since the initial check. Investigated rather than assuming a
+  rebase was needed, and confirmed the branch was already correctly based
+  on current `main`.
+- Repeated, avoidable slip: wrote and pasted new fixture tests correctly,
+  but forgot to save the file in the editor twice before running `npm
+  test`, leading to confusing "did my test not get added?" moments. Caught
+  both times by predicting the expected test count before running and
+  noticing the mismatch.
+- Discovered after merge that a fork's `origin` remote never reflects a
+  merge that happens upstream — `git pull origin main` on my fork reported
+  "Already up to date" even though the PR had been merged, because forks
+  don't auto-sync. Diagnosed it correctly (rather than assuming the merge
+  hadn't happened) by checking `git remote -v`, confirming no `upstream`
+  remote existed, adding one, and fetching from it directly — which
+  revealed the actual squash-merge commit (`76dc1a7`).
+- Practiced regex and test-writing largely from first principles —
+  including deriving the `[cm]?[jt]s` extension-matching pattern,
+  correctly identifying a copy-paste error (testing the wrong dependency),
+  and catching a swapped filename/content argument order in a `writeText`
+  call.
+
+### What I'd Do Differently Next Time
+- Predict-then-verify (stating expected test counts/behavior before
+  running commands) caught real mistakes quickly — worth doing from the
+  start of a contribution rather than adopting partway through.
+- Save-before-run should be closer to automatic; would set up editor
+  auto-save or a personal habit of saving immediately after every paste,
+  before touching the terminal.
+- Re-checking upstream drift right before pushing (not just once at the
+  start) turned out to matter — worth treating as a standard step on every
+  future contribution.
+- Verifying technical assumptions (framework conventions, tool behavior)
+  via direct search before committing to a design, rather than relying on
+  memory, avoided building on a stale assumption (Remix) — worth doing
+  earlier in the process next time, before drafting a claim comment.
+- Would add an `upstream` remote immediately after cloning any fork, before
+  starting work, rather than discovering the need for it after a merge —
+  avoids the "already up to date" confusion entirely next time.
+
+---
+
+## Resources Used
+- [Issue #3 — Add more framework detectors](https://github.com/fadythebassist/agentcontextkit/issues/3)
+- [PR #8 — Add Rust/Cargo and Astro framework detectors](https://github.com/fadythebassist/agentcontextkit/pull/8)
+- `src/scanner.ts`, `src/util.ts`, `src/renderer.ts`, `src/types.ts`,
+  `tests/scanner.test.ts` (read directly from the repository)
+- Astro documentation (config file convention: `astro.config.{js,mjs,cjs,ts}`)
+- Remix / React Router v7 announcement coverage (used to verify — and
+  correct — an initial assumption about Remix's config convention)
+- `dtolnay/anyhow` and `withastro/astro.build` (real repositories used for
+  integration-level spot checks)
+
+------------------------------------------------------------------------------------------
 Current Contribution #4 - Documentation Only
 ------------------------------------------------------------------------------------------
 
